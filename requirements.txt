@@ -1,0 +1,19 @@
+torch
+torchvision
+pytorch-lightning
+
+# MLOps & Tracking
+mlflow
+dvc
+evidently
+
+# API & UI
+fastapi
+uvicorn
+python-multipart
+streamlit
+
+# Utilities
+pyyaml
+pandas
+scikit-learn
