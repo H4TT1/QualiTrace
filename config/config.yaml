@@ -6,7 +6,7 @@ environment: "kaggle"
 
 paths:
   kaggle:
-    data_dir: "/kaggle/input/mvtec-ad"
+    data_dir: "/kaggle/input/datasets/ipythonx/mvtec-ad"
     output_dir: "/kaggle/working/models"
     log_dir: "/kaggle/working/mlruns"
   local:

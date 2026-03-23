@@ -1,3 +1,4 @@
+import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import MLFlowLogger
 from model import AnomalyAE
@@ -9,9 +10,15 @@ def train():
     with open("config/config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
+    # resolve environment 
+    env = os.environ.get("QUALITRACE_ENV", config.get("environment", "local"))
+    if env not in config["paths"]:
+        raise ValueError(f"Unknown environment '{env}'. Expected one of: {list(config['paths'].keys())}")
+    paths = config["paths"][env]
+
     # setup data
     dm = MVTecDataModule(
-        root_dir=config['paths']['data_dir'],
+        root_dir=paths["data_dir"],
         category="bottle", 
         batch_size=config['train_params']['batch_size']
     )
@@ -20,7 +27,10 @@ def train():
     model = AnomalyAE(lr=config['train_params']['lr'])
 
     # setup mlflow logger
-    mlf_logger = MLFlowLogger(experiment_name="QualiTrace_Reconstruction")
+    mlf_logger = MLFlowLogger(
+        experiment_name="QualiTrace_Reconstruction",
+        tracking_uri=paths["log_dir"],
+    )
 
     # trainer
     trainer = pl.Trainer(
