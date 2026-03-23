@@ -1,0 +1,21 @@
+# config/config.yaml
+project_name: "QualiTrace"
+
+# Toggle this based on where you are running
+environment: "kaggle" 
+
+paths:
+  kaggle:
+    data_dir: "/kaggle/input/mvtec-ad"
+    output_dir: "/kaggle/working/models"
+    log_dir: "/kaggle/working/mlruns"
+  local:
+    data_dir: "./data/raw"
+    output_dir: "./models"
+    log_dir: "./mlruns"
+
+train_params:
+  batch_size: 32
+  epochs: 50
+  lr: 0.001
+  img_size: 256
