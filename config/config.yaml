@@ -8,7 +8,7 @@ paths:
   kaggle:
     data_dir: "/kaggle/input/datasets/ipythonx/mvtec-ad"
     output_dir: "/kaggle/working/models"
-    log_dir: "/kaggle/working/mlruns"
+    log_dir: "https://dagshub.com/H4TT1/quali-trace" #"/kaggle/working/mlruns"
   local:
     data_dir: "./data/raw"
     output_dir: "./models"

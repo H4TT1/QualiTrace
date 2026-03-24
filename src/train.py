@@ -28,7 +28,7 @@ def train():
 
     # setup mlflow logger
     mlf_logger = MLFlowLogger(
-        experiment_name="QualiTrace_Reconstruction",
+        experiment_name="quali-trace-autoencoder",
         tracking_uri=paths["log_dir"],
     )
 
