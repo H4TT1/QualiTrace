@@ -1,6 +1,7 @@
 import os
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import MLFlowLogger
+from pytorch_lightning.callbacks import ModelCheckpoint
 from model import AnomalyAE
 from data_loader import MVTecDataModule
 import yaml
@@ -32,12 +33,23 @@ def train():
         tracking_uri=paths["log_dir"],
     )
 
+    # checkpointing
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=paths["output_dir"],
+        filename="{epoch:02d}-{val_loss:.4f}",
+        monitor="val_loss",
+        mode="min",
+        save_last=True,
+    )
+
     # trainer
     trainer = pl.Trainer(
         max_epochs=config['train_params']['epochs'],
         accelerator="auto", # will find gpu on kaggle
         logger=mlf_logger,
-        devices=1
+        devices=1,
+        callbacks=[checkpoint_callback],
+        default_root_dir=paths["output_dir"],
     )
 
     # run

@@ -6,8 +6,6 @@ import numpy as np
 import mlflow
 
 
-
-
 def run_benchmark(checkpoint_path, device="cuda"):
     # load the trained model, here AE but more generic later
     model = AnomalyAE.load_from_checkpoint(checkpoint_path)
