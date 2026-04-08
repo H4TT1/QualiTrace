@@ -25,7 +25,7 @@ def train():
     )
 
     # model
-    model = AnomalyAE(lr=config['train_params']['lr'])
+    model = AnomalyAE(lr=config['train_params']['lr'], loss_type=config['train_params']['loss_type'])
 
     # setup mlflow logger
     mlf_logger = MLFlowLogger(
