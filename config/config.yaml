@@ -19,3 +19,4 @@ train_params:
   epochs: 50
   lr: 0.001
   img_size: 256
+  loss_type: "ssim"
