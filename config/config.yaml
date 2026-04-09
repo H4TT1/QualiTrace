@@ -32,12 +32,12 @@ model:
 
 train_params:
   batch_size: 32
-  epochs: 50
+  epochs: 120
   lr: 0.001
   img_size: 256
 
   # AE loss options: mse, ssim, combined
-  loss_type: "combined"
+  loss_type: "mse"
   mse_weight: 0.5
   ssim_weight: 0.5
 
