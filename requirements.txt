@@ -13,6 +13,9 @@ uvicorn
 python-multipart
 streamlit
 
+# VLMs
+transformers
+
 # Utilities
 pyyaml
 pandas

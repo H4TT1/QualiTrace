@@ -2,21 +2,50 @@
 project_name: "QualiTrace"
 
 # Toggle this based on where you are running
-environment: "kaggle" 
+environment: "kaggle"
 
 paths:
   kaggle:
     data_dir: "/kaggle/input/datasets/ipythonx/mvtec-ad"
     output_dir: "/kaggle/working/models"
-    log_dir: "https://dagshub.com/H4TT1/quali-trace.mlflow" #"/kaggle/working/mlruns"
+    log_dir: "https://dagshub.com/H4TT1/quali-trace.mlflow"
   local:
     data_dir: "./data/raw"
     output_dir: "./models"
     log_dir: "./mlruns"
+
+# Generic model selector
+model:
+  # family options: ae, vlm
+  family: "ae"
+
+  # architecture options per family:
+  # ae -> conv_ae
+  # vlm -> clip
+  architecture: "conv_ae"
+
+  # AE-only options
+  variant: "base" # lite, base, deep
+
+  # VLM-only options
+  backbone: "openai/clip-vit-base-patch32"
 
 train_params:
   batch_size: 32
   epochs: 50
   lr: 0.001
   img_size: 256
-  loss_type: "ssim"
+
+  # AE loss options: mse, ssim, combined
+  loss_type: "combined"
+  mse_weight: 0.5
+  ssim_weight: 0.5
+
+experiment:
+  category: "bottle"
+
+vlm_params:
+  normal_prompt: "a photo of a normal {category}"
+  anomaly_prompt: "a photo of a defective {category}"
+  # Optional override. If omitted, auto picks cuda when available.
+  # device: "cuda"
