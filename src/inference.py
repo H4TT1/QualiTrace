@@ -2,13 +2,25 @@ import os
 import torch
 import cv2
 import numpy as np
+from pathlib import Path
 from model import AnomalyAE
 import matplotlib.pyplot as plt
+
+try:
+    import mlflow
+except Exception:  # optional dependency
+    mlflow = None
 
 from config_utils import load_config, resolve_paths
 
 
-def generate_heatmap(model_path, image_path, img_size=256):
+
+
+def _to_uint8(img):
+    return (img * 255.0).clip(0, 255).astype(np.uint8)
+
+
+def generate_heatmap(model_path, image_path, img_size=256, save_dir=None, show=True):
     model = AnomalyAE.load_from_checkpoint(model_path).eval()
 
     img = cv2.imread(image_path)
@@ -36,7 +48,37 @@ def generate_heatmap(model_path, image_path, img_size=256):
     axes[1].set_title("Reconstruction")
     axes[2].imshow(heatmap)
     axes[2].set_title("Anomaly Heatmap")
-    plt.show()
+
+    if save_dir:
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        stem = Path(image_path).stem
+
+        recon_img = _to_uint8(reconstruction.squeeze().permute(1, 2, 0).numpy())
+        orig_bgr = cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR)
+
+        cv2.imwrite(str(save_dir / f"{stem}_orig.png"), orig_bgr)
+        cv2.imwrite(str(save_dir / f"{stem}_recon.png"), cv2.cvtColor(recon_img, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(str(save_dir / f"{stem}_heatmap.png"), heatmap)
+        fig.savefig(str(save_dir / f"{stem}_panel.png"), bbox_inches="tight")
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return fig
+
+
+def save_prediction_artifacts(model_path, image_paths, img_size=256, out_dir=None, show=False):
+    if out_dir is None:
+        out_dir = "artifacts/predictions"
+
+    for img_path in image_paths:
+        generate_heatmap(model_path, img_path, img_size=img_size, save_dir=out_dir, show=show)
+
+    if mlflow and mlflow.active_run():
+        mlflow.log_artifacts(out_dir, artifact_path="predictions")
 
 
 def default_checkpoint_from_config(config):
@@ -48,6 +90,8 @@ if __name__ == "__main__":
     cfg = load_config()
     checkpoint = default_checkpoint_from_config(cfg)
     img_size = cfg.get("train_params", {}).get("img_size", 256)
+    paths = resolve_paths(cfg)
 
     sample_image = "data/mvtec/bottle/test/broken_large/000.png"
-    generate_heatmap(checkpoint, sample_image, img_size=img_size)
+    artifacts_dir = os.path.join(paths["output_dir"], "artifacts", "predictions")
+    save_prediction_artifacts(checkpoint, [sample_image], img_size=img_size, out_dir=artifacts_dir, show=True)
