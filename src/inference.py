@@ -1,6 +1,7 @@
 import os
 import glob
 import argparse
+from contextlib import nullcontext
 import torch
 import cv2
 import numpy as np
@@ -127,6 +128,8 @@ if __name__ == "__main__":
     parser.add_argument("--show", action="store_true", help="Display matplotlib windows")
     parser.add_argument("--no-prefer-defect", action="store_true", help="Pick good samples first instead of defect-first")
     parser.add_argument("--device", type=str, default=None, help="Inference device: cuda or cpu (default: auto)")
+    parser.add_argument("--no-mlflow", action="store_true", help="Disable MLflow/DagsHub artifact logging")
+    parser.add_argument("--run-name", type=str, default=None, help="Optional MLflow run name")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -142,12 +145,21 @@ if __name__ == "__main__":
         num_samples=args.num_samples,
         prefer_defect=not args.no_prefer_defect,
     )
-    save_prediction_artifacts(
-        checkpoint,
-        samples,
-        img_size=img_size,
-        out_dir=artifacts_dir,
-        show=args.show,
-        device=args.device,
-    )
+
+    run_ctx = nullcontext()
+    if mlflow and not args.no_mlflow and not mlflow.active_run():
+        mlflow.set_tracking_uri(paths["log_dir"])
+        mlflow.set_experiment("quali-trace-inference")
+        run_ctx = mlflow.start_run(run_name=args.run_name)
+
+    with run_ctx:
+        save_prediction_artifacts(
+            checkpoint,
+            samples,
+            img_size=img_size,
+            out_dir=artifacts_dir,
+            show=args.show,
+            device=args.device,
+        )
+
     print(f"Saved {len(samples)} predictions to: {artifacts_dir}")
