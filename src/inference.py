@@ -1,4 +1,6 @@
 import os
+import glob
+import argparse
 import torch
 import cv2
 import numpy as np
@@ -86,12 +88,49 @@ def default_checkpoint_from_config(config):
     return os.path.join(paths["output_dir"], "last.ckpt")
 
 
+def collect_test_samples(data_dir, category, num_samples=6, prefer_defect=True):
+    test_root = os.path.join(data_dir, category, "test")
+    if not os.path.isdir(test_root):
+        raise FileNotFoundError(f"Missing test directory: {test_root}")
+
+    defect_paths = []
+    good_paths = []
+    for sub in sorted(os.listdir(test_root)):
+        sub_path = os.path.join(test_root, sub)
+        if not os.path.isdir(sub_path):
+            continue
+        imgs = sorted(glob.glob(os.path.join(sub_path, "*.png")))
+        if sub == "good":
+            good_paths.extend(imgs)
+        else:
+            defect_paths.extend(imgs)
+
+    ordered = defect_paths + good_paths if prefer_defect else good_paths + defect_paths
+    if not ordered:
+        raise ValueError(f"No PNG images found under: {test_root}")
+    return ordered[:num_samples]
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate AE reconstruction/heatmap artifacts for test images.")
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to .ckpt file. Defaults to output_dir/last.ckpt")
+    parser.add_argument("--num-samples", type=int, default=6, help="How many test images to visualize")
+    parser.add_argument("--show", action="store_true", help="Display matplotlib windows")
+    parser.add_argument("--no-prefer-defect", action="store_true", help="Pick good samples first instead of defect-first")
+    args = parser.parse_args()
+
     cfg = load_config()
-    checkpoint = default_checkpoint_from_config(cfg)
+    checkpoint = args.checkpoint or default_checkpoint_from_config(cfg)
     img_size = cfg.get("train_params", {}).get("img_size", 256)
     paths = resolve_paths(cfg)
+    category = cfg.get("experiment", {}).get("category", "bottle")
 
-    sample_image = "data/mvtec/bottle/test/broken_large/000.png"
     artifacts_dir = os.path.join(paths["output_dir"], "artifacts", "predictions")
-    save_prediction_artifacts(checkpoint, [sample_image], img_size=img_size, out_dir=artifacts_dir, show=True)
+    samples = collect_test_samples(
+        paths["data_dir"],
+        category=category,
+        num_samples=args.num_samples,
+        prefer_defect=not args.no_prefer_defect,
+    )
+    save_prediction_artifacts(checkpoint, samples, img_size=img_size, out_dir=artifacts_dir, show=args.show)
+    print(f"Saved {len(samples)} predictions to: {artifacts_dir}")
