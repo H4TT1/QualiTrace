@@ -2,6 +2,8 @@ import os
 import glob
 import argparse
 from contextlib import nullcontext
+from typing import Iterable
+
 import torch
 import cv2
 import numpy as np
@@ -17,8 +19,6 @@ except Exception:  # optional dependency
 from config_utils import load_config, resolve_paths
 
 
-
-
 def _to_uint8(img):
     return (img * 255.0).clip(0, 255).astype(np.uint8)
 
@@ -29,9 +29,18 @@ def _resolve_device(device=None):
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def generate_heatmap(model_path, image_path, img_size=256, save_dir=None, show=True, device=None):
+def _load_model(model_path, device):
+    return AnomalyAE.load_from_checkpoint(model_path, map_location=device).to(device).eval()
+
+
+def _artifact_stem(image_path):
+    image_path = Path(image_path)
+    parent = image_path.parent.name
+    return f"{parent}_{image_path.stem}"
+
+
+def generate_heatmap(model, image_path, img_size=256, save_dir=None, show=True, device=None):
     device = _resolve_device(device)
-    model = AnomalyAE.load_from_checkpoint(model_path, map_location=device).to(device).eval()
 
     img = cv2.imread(image_path)
     if img is None:
@@ -64,7 +73,7 @@ def generate_heatmap(model_path, image_path, img_size=256, save_dir=None, show=T
     if save_dir:
         save_dir = Path(save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
-        stem = Path(image_path).stem
+        stem = _artifact_stem(image_path)
 
         recon_img = _to_uint8(recon_np)
         orig_bgr = cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR)
@@ -82,12 +91,15 @@ def generate_heatmap(model_path, image_path, img_size=256, save_dir=None, show=T
     return fig
 
 
-def save_prediction_artifacts(model_path, image_paths, img_size=256, out_dir=None, show=False, device=None):
+def save_prediction_artifacts(model_path, image_paths: Iterable[str], img_size=256, out_dir=None, show=False, device=None):
     if out_dir is None:
         out_dir = "artifacts/predictions"
 
+    device = _resolve_device(device)
+    model = _load_model(model_path, device)
+
     for img_path in image_paths:
-        generate_heatmap(model_path, img_path, img_size=img_size, save_dir=out_dir, show=show, device=device)
+        generate_heatmap(model, img_path, img_size=img_size, save_dir=out_dir, show=show, device=device)
 
     if mlflow and mlflow.active_run():
         mlflow.log_artifacts(out_dir, artifact_path="predictions")

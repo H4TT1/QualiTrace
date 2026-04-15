@@ -38,6 +38,9 @@ class AnomalyAE(pl.LightningModule):
         self.encoder = self._build_encoder(channels)
         self.decoder = self._build_decoder(channels)
 
+    def _uses_ssim(self):
+        return self.hparams.loss_type in {"ssim", "combined"}
+
     @staticmethod
     def _build_encoder(channels):
         layers = []
@@ -94,7 +97,7 @@ class AnomalyAE(pl.LightningModule):
 
     def _compute_losses(self, x_hat, x):
         mse_loss = F.mse_loss(x_hat, x)
-        ssim_val = self.ssim_metric(x_hat, x)
+        ssim_val = self.ssim_metric(x_hat, x) if self._uses_ssim() else x_hat.new_tensor(0.0)
         ssim_loss = 1 - ssim_val
 
         if self.hparams.loss_type == "mse":
