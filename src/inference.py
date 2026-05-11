@@ -16,7 +16,7 @@ try:
 except Exception:  # optional dependency
     mlflow = None
 
-from config_utils import load_config, resolve_paths
+from config_utils import load_config, resolve_data_info, resolve_paths
 
 
 def _to_uint8(img):
@@ -148,6 +148,7 @@ if __name__ == "__main__":
     checkpoint = args.checkpoint or default_checkpoint_from_config(cfg)
     img_size = cfg.get("train_params", {}).get("img_size", 256)
     paths = resolve_paths(cfg)
+    data_info = resolve_data_info(cfg, paths)
     category = cfg.get("experiment", {}).get("category", "bottle")
 
     artifacts_dir = os.path.join(paths["output_dir"], "artifacts", "predictions")
@@ -165,6 +166,16 @@ if __name__ == "__main__":
         run_ctx = mlflow.start_run(run_name=args.run_name)
 
     with run_ctx:
+        if mlflow and mlflow.active_run():
+            mlflow.log_params(
+                {
+                    "data_name": data_info["name"],
+                    "data_version": data_info["version"],
+                    "data_source": data_info["source"],
+                    "data_dir": data_info["data_dir"],
+                    "category": category,
+                }
+            )
         save_prediction_artifacts(
             checkpoint,
             samples,

@@ -4,6 +4,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from data_loader import MVTecDataModule
 from models import build_model
+from config_utils import resolve_data_info
 from .registry import register_runner
 
 
@@ -12,6 +13,7 @@ def run_ae_experiment(config: dict, paths: dict):
     train_cfg = config["train_params"]
     model_cfg = config.get("model", {})
     exp_cfg = config.get("experiment", {})
+    data_info = resolve_data_info(config, paths)
 
     category = exp_cfg.get("category", "bottle")
     model_variant = model_cfg.get("variant", "base")
@@ -47,5 +49,14 @@ def run_ae_experiment(config: dict, paths: dict):
         callbacks=[checkpoint_callback],
         default_root_dir=paths["output_dir"],
     )
+
+    for key, value in {
+        "data_name": data_info["name"],
+        "data_version": data_info["version"],
+        "data_source": data_info["source"],
+        "data_dir": data_info["data_dir"],
+        "category": category,
+    }.items():
+        mlf_logger.experiment.log_param(mlf_logger.run_id, key, value)
 
     trainer.fit(model, dm)
