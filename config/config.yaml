@@ -53,6 +53,12 @@ train_params:
   mse_weight: 0.5
   ssim_weight: 0.5
 
+evaluation:
+  auroc_threshold: 0.85
+  register_on_pass: true
+  model_registry_name: "QualiTrace-AnomalyAE"
+  candidate_tag: "Candidate"
+
 experiment:
   category: "bottle"
 
