@@ -19,6 +19,13 @@ data:
   version: "kaggle-ipythonx-default"
   source: "kaggle://ipythonx/mvtec-ad"
 
+data_validation:
+  enabled: true
+  fail_on_error: true
+  expected_channels: 3
+  min_train_test_ratio: 0.1
+  max_train_test_ratio: 10.0
+
 # Generic model selector
 model:
   # family options: ae, vlm
