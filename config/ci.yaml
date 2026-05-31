@@ -1,0 +1,47 @@
+project_name: "QualiTrace"
+environment: "local"
+
+paths:
+  local:
+    data_dir: ".ci_data/mvtec"
+    output_dir: ".ci_outputs/models"
+    log_dir: ".ci_outputs/mlruns"
+
+data:
+  name: "mvtec-ad-smoke"
+  version: "ci-synthetic"
+  source: "generated-in-github-actions"
+
+data_validation:
+  enabled: true
+  fail_on_error: true
+  expected_channels: 3
+  min_train_test_ratio: 0.1
+  max_train_test_ratio: 10.0
+
+model:
+  family: "ae"
+  architecture: "conv_ae"
+  variant: "lite"
+
+train_params:
+  batch_size: 1
+  epochs: 1
+  lr: 0.001
+  img_size: 32
+  loss_type: "mse"
+  mse_weight: 0.5
+  ssim_weight: 0.5
+
+evaluation:
+  auroc_threshold: 0.85
+  register_on_pass: false
+  model_registry_name: "QualiTrace-AnomalyAE"
+  candidate_tag: "Candidate"
+
+experiment:
+  category: "bottle"
+
+vlm_params:
+  normal_prompt: "a photo of a normal {category}"
+  anomaly_prompt: "a photo of a defective {category}"
