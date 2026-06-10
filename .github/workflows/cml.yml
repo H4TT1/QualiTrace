@@ -1,0 +1,73 @@
+name: CML Smoke Pipeline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  smoke-train:
+    name: CPU smoke training
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up CML
+        uses: iterative/setup-cml@v2
+
+      - name: Create synthetic MVTec smoke dataset
+        run: python scripts/create_smoke_dataset.py
+
+      - name: Check Python syntax
+        run: python -m py_compile src/*.py src/models/*.py src/experiments/*.py
+
+      - name: Run one-epoch CPU smoke training
+        env:
+          PYTHONPATH: src
+        run: python src/train.py --config config/ci.yaml
+
+      - name: Plot training loss
+        run: python scripts/plot_mlflow_loss.py
+
+      - name: Build CML report
+        run: |
+          echo "## QualiTrace CML Smoke Pipeline" > report.md
+          echo "" >> report.md
+          echo "- CPU smoke training completed for 1 epoch." >> report.md
+          echo "- Synthetic MVTec-style dataset: 2 train images, 2 test images." >> report.md
+          echo "- Config: \`config/ci.yaml\`" >> report.md
+          echo "" >> report.md
+          cml publish .ci_outputs/train_loss.png --md >> report.md
+
+      - name: Comment CML report on PR
+        if: github.event_name == 'pull_request'
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cml comment create report.md
+
+      - name: Upload smoke artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cml-smoke-artifacts
+          path: |
+            report.md
+            .ci_outputs/train_loss.png
+            .ci_outputs/models/data_validation_report.json
