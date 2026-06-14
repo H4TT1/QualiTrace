@@ -39,23 +39,23 @@ jobs:
       - name: Check Python syntax
         run: python -m py_compile src/*.py src/models/*.py src/experiments/*.py
 
-      - name: Run one-epoch CPU smoke training
+      - name: Run CPU PatchCore smoke pipeline
         env:
           PYTHONPATH: src
         run: python src/train.py --config config/ci.yaml
 
-      - name: Plot training loss
-        run: python scripts/plot_mlflow_loss.py
+      - name: Plot PatchCore scores
+        run: python scripts/plot_patchcore_scores.py
 
       - name: Build CML report
         run: |
           echo "## QualiTrace CML Smoke Pipeline" > report.md
           echo "" >> report.md
-          echo "- CPU smoke training completed for 1 epoch." >> report.md
+          echo "- CPU PatchCore smoke run completed." >> report.md
           echo "- Synthetic MVTec-style dataset: 2 train images, 2 test images." >> report.md
           echo "- Config: \`config/ci.yaml\`" >> report.md
           echo "" >> report.md
-          cml publish .ci_outputs/train_loss.png --md >> report.md
+          cml publish .ci_outputs/patchcore_scores.png --md >> report.md
 
       - name: Comment CML report on PR
         if: github.event_name == 'pull_request'
@@ -69,5 +69,6 @@ jobs:
           name: cml-smoke-artifacts
           path: |
             report.md
-            .ci_outputs/train_loss.png
+            .ci_outputs/patchcore_scores.png
             .ci_outputs/models/data_validation_report.json
+            .ci_outputs/models/patchcore_scores.json

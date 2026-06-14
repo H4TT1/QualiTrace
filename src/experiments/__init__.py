@@ -1,7 +1,7 @@
 from .registry import get_runner, register_runner
 
 # Trigger registration for built-in runners.
-from . import ae  # noqa: F401
+from . import patchcore  # noqa: F401
 
 # Optional runners can fail to import if extra deps are missing.
 try:

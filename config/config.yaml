@@ -28,35 +28,32 @@ data_validation:
 
 # Generic model selector
 model:
-  # family options: ae, vlm
-  family: "ae"
+  # family options: embedding, vlm
+  family: "embedding"
 
   # architecture options per family:
-  # ae -> conv_ae
+  # embedding -> patchcore
   # vlm -> clip
-  architecture: "conv_ae"
+  architecture: "patchcore"
 
-  # AE-only options
-  variant: "base" # lite, base, deep
+  # PatchCore options
+  backbone: "wide_resnet50_2"
+  pretrained: true
+  layers: ["layer2", "layer3"]
+  max_memory_patches: 20000
+  distance_chunk_size: 4096
 
   # VLM-only options
-  backbone: "openai/clip-vit-base-patch32"
+  vlm_backbone: "openai/clip-vit-base-patch32"
 
 train_params:
   batch_size: 32
-  epochs: 120
-  lr: 0.001
   img_size: 256
-
-  # AE loss options: mse, ssim, combined
-  loss_type: "mse"
-  mse_weight: 0.5
-  ssim_weight: 0.5
 
 evaluation:
   auroc_threshold: 0.85
   register_on_pass: true
-  model_registry_name: "QualiTrace-AnomalyAE"
+  model_registry_name: "QualiTrace-PatchCore"
   candidate_tag: "Candidate"
 
 experiment:

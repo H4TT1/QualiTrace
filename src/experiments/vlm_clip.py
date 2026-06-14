@@ -41,7 +41,7 @@ def run_vlm_clip_experiment(config: dict, paths: dict):
     vlm_cfg = config.get("vlm_params", {})
 
     category = exp_cfg.get("category", "bottle")
-    backbone = model_cfg.get("backbone", "openai/clip-vit-base-patch32")
+    backbone = model_cfg.get("vlm_backbone", "openai/clip-vit-base-patch32")
     normal_prompt = vlm_cfg.get("normal_prompt", "a photo of a normal {category}")
     anomaly_prompt = vlm_cfg.get("anomaly_prompt", "a photo of a defective {category}")
 

@@ -15,8 +15,8 @@ def register_runner(family: str, architecture: str):
 
 
 def get_runner(model_cfg: dict) -> ExperimentRunner:
-    family = model_cfg.get("family", "ae")
-    architecture = model_cfg.get("architecture", "conv_ae")
+    family = model_cfg.get("family", "embedding")
+    architecture = model_cfg.get("architecture", "patchcore")
     key = (family, architecture)
 
     if key not in _RUNNER_REGISTRY:

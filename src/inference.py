@@ -8,7 +8,6 @@ import torch
 import cv2
 import numpy as np
 from pathlib import Path
-from model import AnomalyAE
 import matplotlib.pyplot as plt
 
 try:
@@ -17,6 +16,7 @@ except Exception:  # optional dependency
     mlflow = None
 
 from config_utils import load_config, resolve_data_info, resolve_paths
+from models import build_model
 
 
 def _to_uint8(img):
@@ -29,14 +29,36 @@ def _resolve_device(device=None):
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def _load_model(model_path, device):
-    return AnomalyAE.load_from_checkpoint(model_path, map_location=device).to(device).eval()
+def _load_model(config, model_path, device):
+    model = build_model(config.get("model", {}), config.get("train_params", {}))
+    model.load(model_path, map_location=device)
+    return model.to(device).eval()
 
 
 def _artifact_stem(image_path):
     image_path = Path(image_path)
     parent = image_path.parent.name
     return f"{parent}_{image_path.stem}"
+
+
+def _patchcore_score_map(model, input_tensor, device):
+    embedding = model.extract_patch_features(input_tensor.to(device))
+    batch_size, _, height, width = embedding.shape
+    patch_features = embedding.permute(0, 2, 3, 1).reshape(-1, embedding.shape[1])
+    memory_bank = model.memory_bank.to(device)
+    distances = []
+
+    for chunk in patch_features.split(model.distance_chunk_size):
+        distances.append(torch.cdist(chunk, memory_bank).min(dim=1).values)
+
+    patch_scores = torch.cat(distances).reshape(batch_size, 1, height, width)
+    score_map = torch.nn.functional.interpolate(
+        patch_scores,
+        size=input_tensor.shape[-2:],
+        mode="bilinear",
+        align_corners=False,
+    )
+    return score_map
 
 
 def generate_heatmap(model, image_path, img_size=256, save_dir=None, show=True, device=None):
@@ -51,35 +73,28 @@ def generate_heatmap(model, image_path, img_size=256, save_dir=None, show=True, 
     input_tensor = (torch.from_numpy(img_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0).to(device)
 
     with torch.no_grad():
-        reconstruction = model(input_tensor)
+        score_map = _patchcore_score_map(model, input_tensor, device)
 
-    input_np = input_tensor.squeeze().permute(1, 2, 0).detach().cpu().numpy()
-    recon_np = reconstruction.squeeze().permute(1, 2, 0).detach().cpu().numpy()
-    residual = np.abs(input_np - recon_np)
-    residual_gray = np.mean(residual, axis=2)
+    score_np = score_map.squeeze().detach().cpu().numpy()
 
     eps = 1e-8
-    residual_norm = (residual_gray - residual_gray.min()) / (residual_gray.max() - residual_gray.min() + eps)
-    heatmap = cv2.applyColorMap((residual_norm * 255).astype(np.uint8), cv2.COLORMAP_JET)
+    score_norm = (score_np - score_np.min()) / (score_np.max() - score_np.min() + eps)
+    heatmap = cv2.applyColorMap((score_norm * 255).astype(np.uint8), cv2.COLORMAP_JET)
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     axes[0].imshow(img_resized)
     axes[0].set_title("Original")
-    axes[1].imshow(recon_np)
-    axes[1].set_title("Reconstruction")
-    axes[2].imshow(heatmap)
-    axes[2].set_title("Anomaly Heatmap")
+    axes[1].imshow(heatmap)
+    axes[1].set_title("PatchCore Heatmap")
 
     if save_dir:
         save_dir = Path(save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
         stem = _artifact_stem(image_path)
 
-        recon_img = _to_uint8(recon_np)
         orig_bgr = cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR)
 
         cv2.imwrite(str(save_dir / f"{stem}_orig.png"), orig_bgr)
-        cv2.imwrite(str(save_dir / f"{stem}_recon.png"), cv2.cvtColor(recon_img, cv2.COLOR_RGB2BGR))
         cv2.imwrite(str(save_dir / f"{stem}_heatmap.png"), heatmap)
         fig.savefig(str(save_dir / f"{stem}_panel.png"), bbox_inches="tight")
 
@@ -91,12 +106,12 @@ def generate_heatmap(model, image_path, img_size=256, save_dir=None, show=True, 
     return fig
 
 
-def save_prediction_artifacts(model_path, image_paths: Iterable[str], img_size=256, out_dir=None, show=False, device=None):
+def save_prediction_artifacts(config, model_path, image_paths: Iterable[str], img_size=256, out_dir=None, show=False, device=None):
     if out_dir is None:
         out_dir = "artifacts/predictions"
 
     device = _resolve_device(device)
-    model = _load_model(model_path, device)
+    model = _load_model(config, model_path, device)
 
     for img_path in image_paths:
         generate_heatmap(model, img_path, img_size=img_size, save_dir=out_dir, show=show, device=device)
@@ -107,7 +122,7 @@ def save_prediction_artifacts(model_path, image_paths: Iterable[str], img_size=2
 
 def default_checkpoint_from_config(config):
     paths = resolve_paths(config)
-    return os.path.join(paths["output_dir"], "last.ckpt")
+    return os.path.join(paths["output_dir"], "last.pt")
 
 
 def collect_test_samples(data_dir, category, num_samples=6, prefer_defect=True):
@@ -134,8 +149,8 @@ def collect_test_samples(data_dir, category, num_samples=6, prefer_defect=True):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate AE reconstruction/heatmap artifacts for test images.")
-    parser.add_argument("--checkpoint", type=str, default=None, help="Path to .ckpt file. Defaults to output_dir/last.ckpt")
+    parser = argparse.ArgumentParser(description="Generate PatchCore heatmap artifacts for test images.")
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to .pt file. Defaults to output_dir/last.pt")
     parser.add_argument("--num-samples", type=int, default=6, help="How many test images to visualize")
     parser.add_argument("--show", action="store_true", help="Display matplotlib windows")
     parser.add_argument("--no-prefer-defect", action="store_true", help="Pick good samples first instead of defect-first")
@@ -177,6 +192,7 @@ if __name__ == "__main__":
                 }
             )
         save_prediction_artifacts(
+            cfg,
             checkpoint,
             samples,
             img_size=img_size,

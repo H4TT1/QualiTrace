@@ -11,7 +11,7 @@ from sklearn.metrics import roc_auc_score
 
 from config_utils import load_config, resolve_data_info, resolve_paths
 from data_loader import MVTecDataModule
-from model import AnomalyAE
+from models import build_model
 
 
 def _resolve_device(device: str | None = None) -> torch.device:
@@ -22,19 +22,17 @@ def _resolve_device(device: str | None = None) -> torch.device:
 
 def default_checkpoint_from_config(config: dict) -> str:
     paths = resolve_paths(config)
-    return os.path.join(paths["output_dir"], "last.ckpt")
+    return os.path.join(paths["output_dir"], "last.pt")
 
 
-def score_autoencoder(model: AnomalyAE, dataloader, device: torch.device) -> tuple[list[float], list[int]]:
+def score_model(model, dataloader, device: torch.device) -> tuple[list[float], list[int]]:
     model.to(device).eval()
     scores = []
     labels = []
 
     with torch.no_grad():
         for x, y in dataloader:
-            x = x.to(device)
-            x_hat = model(x)
-            batch_scores = torch.mean((x_hat - x) ** 2, dim=(1, 2, 3))
+            batch_scores = model.score(x, device=device)
 
             scores.extend(batch_scores.detach().cpu().tolist())
             labels.extend(y.detach().cpu().int().tolist())
@@ -65,8 +63,10 @@ def save_report(report: dict, output_dir: str, filename: str = "evaluation_repor
     return path
 
 
-def register_candidate_model(model: AnomalyAE, registry_name: str, candidate_tag: str):
+def register_candidate_model(model, registry_name: str, candidate_tag: str):
     model.cpu().eval()
+    if getattr(model, "memory_bank", None) is not None:
+        model.memory_bank = model.memory_bank.cpu()
     model_info = mlflow.pytorch.log_model(
         pytorch_model=model,
         artifact_path="model",
@@ -108,8 +108,9 @@ def evaluate(config_path: str = "config/config.yaml", checkpoint: str | None = N
     )
     dm.setup("test")
 
-    model = AnomalyAE.load_from_checkpoint(checkpoint_path, map_location=device_obj)
-    scores, labels = score_autoencoder(model, dm.val_dataloader(), device_obj)
+    model = build_model(config.get("model", {}), train_cfg)
+    metadata = model.load(checkpoint_path, map_location=device_obj)
+    scores, labels = score_model(model, dm.val_dataloader(), device_obj)
 
     if len(set(labels)) < 2:
         raise ValueError("AUROC requires both normal and anomalous samples in the test labels.")
@@ -120,6 +121,7 @@ def evaluate(config_path: str = "config/config.yaml", checkpoint: str | None = N
     scores_path = save_scores_csv(scores, labels, output_dir)
     report = {
         "checkpoint": checkpoint_path,
+        "checkpoint_metadata": metadata,
         "category": category,
         "data": data_info,
         "num_samples": len(labels),
@@ -155,7 +157,7 @@ def evaluate(config_path: str = "config/config.yaml", checkpoint: str | None = N
         if passed and eval_cfg.get("register_on_pass", True):
             register_candidate_model(
                 model=model,
-                registry_name=eval_cfg.get("model_registry_name", "QualiTrace-AnomalyAE"),
+                registry_name=eval_cfg.get("model_registry_name", "QualiTrace-PatchCore"),
                 candidate_tag=eval_cfg.get("candidate_tag", "Candidate"),
             )
 
@@ -171,9 +173,9 @@ def evaluate(config_path: str = "config/config.yaml", checkpoint: str | None = N
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate AE anomaly detection and register passing models.")
+    parser = argparse.ArgumentParser(description="Evaluate PatchCore anomaly detection and register passing models.")
     parser.add_argument("--config", type=str, default="config/config.yaml", help="Path to config YAML")
-    parser.add_argument("--checkpoint", type=str, default=None, help="Path to checkpoint. Defaults to output_dir/last.ckpt")
+    parser.add_argument("--checkpoint", type=str, default=None, help="Path to checkpoint. Defaults to output_dir/last.pt")
     parser.add_argument("--device", type=str, default=None, help="Inference device: cuda or cpu (default: auto)")
     args = parser.parse_args()
 

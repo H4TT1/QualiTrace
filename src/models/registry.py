@@ -15,8 +15,8 @@ def register_model(family: str, architecture: str):
 
 
 def build_model(model_cfg: dict, train_cfg: dict):
-    family = model_cfg.get("family", "ae")
-    architecture = model_cfg.get("architecture", "conv_ae")
+    family = model_cfg.get("family", "embedding")
+    architecture = model_cfg.get("architecture", "patchcore")
     key = (family, architecture)
 
     if key not in _MODEL_REGISTRY:

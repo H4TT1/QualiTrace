@@ -20,23 +20,22 @@ data_validation:
   max_train_test_ratio: 10.0
 
 model:
-  family: "ae"
-  architecture: "conv_ae"
-  variant: "lite"
+  family: "embedding"
+  architecture: "patchcore"
+  backbone: "resnet18"
+  pretrained: false
+  layers: ["layer2", "layer3"]
+  max_memory_patches: 128
+  distance_chunk_size: 256
 
 train_params:
   batch_size: 1
-  epochs: 1
-  lr: 0.001
   img_size: 32
-  loss_type: "mse"
-  mse_weight: 0.5
-  ssim_weight: 0.5
 
 evaluation:
   auroc_threshold: 0.85
   register_on_pass: false
-  model_registry_name: "QualiTrace-AnomalyAE"
+  model_registry_name: "QualiTrace-PatchCore"
   candidate_tag: "Candidate"
 
 experiment:
