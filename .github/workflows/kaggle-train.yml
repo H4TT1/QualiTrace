@@ -59,8 +59,20 @@ jobs:
           }
           EOF
 
-      - name: Upload source dataset version
-        run: python scripts/publish_kaggle_source.py
+      - name: Publish source dataset
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+        run: |
+          if kaggle datasets status "$KAGGLE_USERNAME/qualitrace-source" >/dev/null 2>&1; then
+            echo "Dataset exists, creating new version..."
+            kaggle datasets version \
+              -p kaggle_source \
+              -m "Update source from GitHub Actions"
+          else
+            echo "Dataset does not exist, creating..."
+            kaggle datasets create \
+              -p kaggle_source
+          fi
 
       - name: Prepare Kaggle kernel metadata
         env:
