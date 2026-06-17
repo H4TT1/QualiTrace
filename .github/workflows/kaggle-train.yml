@@ -101,14 +101,14 @@ jobs:
       - name: Follow Kaggle logs
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KERNEL_SLUG: ${{ github.event.inputs.kernel_slug || 'qualitrace-training' }}
+          KERNEL_SLUG: ${{ github.event.inputs.kernel_slug || 'qualitrace-source' }}
         run: kaggle kernels logs "$KAGGLE_USERNAME/$KERNEL_SLUG" --follow --interval 30
 
       - name: Download Kaggle outputs
         if: always()
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KERNEL_SLUG: ${{ github.event.inputs.kernel_slug || 'qualitrace-training' }}
+          KERNEL_SLUG: ${{ github.event.inputs.kernel_slug || 'qualitrace-source' }}
         run: |
           mkdir -p kaggle_outputs
           kaggle kernels output "$KAGGLE_USERNAME/$KERNEL_SLUG" -p kaggle_outputs || true
