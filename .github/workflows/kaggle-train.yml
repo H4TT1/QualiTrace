@@ -40,8 +40,7 @@ jobs:
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           mkdir -p ~/.kaggle
-          printf '{"username":"%s","key":"%s"}' "$KAGGLE_USERNAME" "$KAGGLE_KEY" > ~/.kaggle/kaggle.json
-          chmod 600 ~/.kaggle/kaggle.json
+          echo $KAGGLE_KEY > ~/.kaggle/access_token && chmod 600 ~/.kaggle/access_token
 
       - name: Package repo as Kaggle dataset
         run: |
