@@ -30,6 +30,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # FIX: Install system graphics dependencies required by node-canvas/CML tools
+      - name: Install System Graphics Dependencies for CML Canvas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+
       - name: Set up CML
         uses: iterative/setup-cml@v2
 
